@@ -1,5 +1,5 @@
 name: testtest
-run-name: "${{ github.RUN_ID }}/${{ github.RUN_NUMBER }}
+run-name: "${{ github.RUN_ID }}/${{ github.RUN_NUMBER }}"
 
 on:
   push:
@@ -11,10 +11,8 @@ jobs:
     runs-on: ubuntu-default
     name: test
     steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          submodules: true
       - name: github_run_id
         run: echo "${{ github.run_id }}"
+      - name: github_run_number
+        run: echo "${{ github.run_number }}"
 
