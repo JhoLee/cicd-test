@@ -17,4 +17,3 @@ jobs:
         run: echo "Run Number:\ ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
       - name: github_step_summary
         run: echo "STEP_SUMMARY:\ $(cat ${{ github.step_summary }})"
-
