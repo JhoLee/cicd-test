@@ -12,9 +12,9 @@ jobs:
     name: test
     steps:
       - name: github_run_id
-        run: echo "Run ID: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+        run: echo "Run ID:\ ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
       - name: github_run_number
-        run: echo "Run Number: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        run: echo "Run Number:\ ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
       - name: github_step_summary
-        run: echo "STEP_SUMMARY: $(cat ${{ github.step_summary }})"
+        run: echo "STEP_SUMMARY:\ $(cat ${{ github.step_summary }})"
 
