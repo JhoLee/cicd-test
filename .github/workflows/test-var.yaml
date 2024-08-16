@@ -8,6 +8,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-default
+    name: test
     steps:
-      - run: echo "$GITHUB_RUN_ID"
-      - run: echo "$GITHUB_RUN_NUMBER"
+      - name: github_run_id
+        run: echo "$GITHUB_RUN_ID"
+      - name: github_run_number
+        run: echo "$GITHUB_RUN_NUMBER"
