@@ -15,4 +15,6 @@ jobs:
         run: echo "${{ github.run_id }}"
       - name: github_run_number
         run: echo "${{ github.run_number }}"
+      - name: github_step_summary
+        run: echo "${{ github.step_summary }}"
 
