@@ -1,0 +1,8 @@
+run-name: "${{ github.RUN_ID }}/${{ github.RUN_NUMBER }}
+job:
+  uses: ubuntu-default
+  step:
+    - run: |
+        echo "$GITHUB_RUN_ID"
+    - run: |
+        echo "$GITHUB_RUN_NUMBER"
