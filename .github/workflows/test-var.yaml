@@ -17,5 +17,4 @@ jobs:
           submodules: true
       - name: github_run_id
         run: echo "${{ github.run_id }}"
-      - name: github_run_number
-        run: echo "${{ github.run_number }}"
+
