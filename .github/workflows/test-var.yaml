@@ -11,6 +11,6 @@ jobs:
     name: test
     steps:
       - name: github_run_id
-        run: echo "$GITHUB_RUN_ID"
+        run: echo "${{ github.RUN_ID }}"
       - name: github_run_number
-        run: echo "$GITHUB_RUN_NUMBER"
+        run: echo "${{ github.run_number }}"
