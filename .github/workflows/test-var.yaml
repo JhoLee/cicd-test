@@ -3,8 +3,13 @@ run-name: "${{ github.RUN_ID }}/${{ github.RUN_NUMBER }}"
 
 on:
   push:
-    branches: 
+    branches:
       - main
+  issue_comment:
+    types:
+      - created
+      - edited
+      - deleted
 
 jobs:
   test:
@@ -17,3 +22,26 @@ jobs:
         run: echo "Run Number:\ ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
       - name: github_step_summary
         run: echo "STEP_SUMMARY:\ $(cat ${{ github.step_summary }})"
+
+  issue-comment-test:
+    if: ${{ github.event.issue.pull_request }}
+    runs-on: ubuntu-latest
+    name: test
+    steps:
+      - run: |
+          echo PR: ${{ github.event.issue.number }}
+          echo comment-author: ${{ github.event.comment.author }}
+          echo comment-actor: ${{ github.event.comment.actor }}
+          echo comment-body: ${{ github.event.comment.body }}
+
+  issue-comment-test2:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.comment.user.login == 'Jholee' }}
+    permissions:
+      issues: write
+    steps:
+      - run: |
+          echo PR: ${{ github.event.issue.number }}
+          echo comment-author: ${{ github.event.comment.author }}
+          echo comment-actor: ${{ github.event.comment.actor }}
+          echo comment-body: ${{ github.event.comment.body }}
