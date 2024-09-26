@@ -1,0 +1,152 @@
+name: "PR Comment - Approval"
+on:
+  pull_request:
+    types:
+      - opened
+  issue_comment:
+    types:
+      - created
+
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: false
+
+jobs:
+  check-approval:
+    if: ${{ (github.event.comment.user.login == 'JhoLee' || github.event.comment.user.login == 'MinGBaek' || github.event.comment.user.login == 'Ni-Doho') && (contains(github.event.comment.body, '승인') || contains(github.event.comment.body, '거부')) }}
+    runs-on: ubuntu-latest
+    name: ⚡️ Check approval
+    permissions:
+      issues: write
+      pull-requests: write
+      statuses: write
+    steps:
+      # Todo: Add hide-comment step
+
+      # todo: vars에서 댓글 세팅되게 하고, 하나로 통합해야함.
+      - id: notify-author-for-approved
+        if: ${{ contains(github.event.comment.body, '승인') && !contains(github.event.comment.body, '거부') }}
+        name: Notify Author (Approved)
+        uses: peter-evans/create-or-update-comment@v4
+        continue-on-error: true
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            <!-- Annotation - result -->
+            # ✅ by @${{ github.event.comment.user.login }}
+            PR이 PM에 의해 **승인**되었습니다.
+            ## info
+            - PR Initial Author: @${{ github.event.issue.pull_request.user.login }}
+            - Last Author: @${{ github.actor }}
+            - Base Ref: ${{ github.base_ref }}
+            - Head Ref: ${{ github.head_ref }}
+
+            ---
+            > Run Info - Number(Attempt): [${{ github.workflow }}#${{ github.run_number }}(${{ github.run_attempt }})]
+            > Last Updated at ${{ steps.sv.outputs.NOW }}.
+            > Commit SHA: ${{ github.sha }}
+
+            [${{ github.workflow }}#${{ github.run_number }}(${{ github.run_attempt }})]: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - id: notify-author-for-rejected
+        if: ${{ !contains(github.event.comment.body, '승인') && contains(github.event.comment.body, '거부') }}
+        name: Notify Author (Rejected)
+        uses: peter-evans/create-or-update-comment@v4
+        continue-on-error: true
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            <!-- Annotation - result -->
+            # ❌ by @${{ github.event.comment.user.login }}
+            PR이 PM에 의해 **거부**되었습니다.
+            ## info
+            - PR Initial Author: @${{ github.event.issue.pull_request.user.login }}
+            - Last Author: @${{ github.actor }}
+            - Base Ref: ${{ github.base_ref }}
+            - Head Ref: ${{ github.head_ref }}
+
+            ---
+            > Run Info - Number(Attempt): [${{ github.workflow }}#${{ github.run_number }}(${{ github.run_attempt }})]
+            > Last Updated at ${{ steps.sv.outputs.NOW }}.
+            > Commit SHA: ${{ github.sha }}
+
+            [${{ github.workflow }}#${{ github.run_number }}(${{ github.run_attempt }})]: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - id: notify-author-for-error
+        if: ${{ contains(github.event.comment.body, '승인') && contains(github.event.comment.body, '거부') }}
+        name: Notify Author (Error)
+        uses: peter-evans/create-or-update-comment@v4
+        continue-on-error: true
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            <!-- Annotation - Branch rule -->
+            # ⁉️ by @${{ github.event.comment.user.login }}
+            `승인`, `거부` 중 하나만 입력하셔야 합니다.
+            ## info
+            - PR Initial Author: @${{ github.event.issue.pull_request.user.login }}
+            - Last Author: @${{ github.actor }}
+            - Base Ref: ${{ github.base_ref }}
+            - Head Ref: ${{ github.head_ref }}
+
+            ---
+            > Run Info - Number(Attempt): [${{ github.workflow }}#${{ github.run_number }}(${{ github.run_attempt }})]
+            > Last Updated at ${{ steps.sv.outputs.NOW }}.
+            > Commit SHA: ${{ github.sha }}
+
+            [${{ github.workflow }}#${{ github.run_number }}(${{ github.run_attempt }})]: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Check if comment is on a pull request
+        id: check-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          PR_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER" \
+            | jq -r .pull_request.url)
+          if [ "$PR_URL" != "null" ]; then
+            echo "is_pr=true" >> $GITHUB_OUTPUT
+            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          else
+            echo "is_pr=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set status check
+        if: steps.check-pr.outputs.is_pr == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT: ${{ github.event.comment.body }}
+          PR_URL: ${{ steps.check-pr.outputs.pr_url }}
+        run: |
+          if [[ ${{ contains(github.event.comment.body, '승인') }} == 'true' ]]; then
+            if [[ ${{ contains(github.event.comment.body, '거부') }} == 'true' ]]; then
+              STATUS=error
+            else
+              STATUS=success
+            fi
+          else
+            if [[ ${{ contains(github.event.comment.body, '거부') }} == 'true' ]]; then
+              STATUS=failure
+            else
+              STATUS=pending
+            fi
+          fi
+          echo STATUS=$STATUS | tee -a $GITHUB_STEP_SUMMARY
+
+          # Get the SHA of the latest commit in the PR
+          PR_SHA=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$PR_URL" | jq -r .head.sha)
+          echo PR_SHA=$PR_SHA | tee -a $GITHUB_STEP_SUMMARY
+          
+          # Set the status check
+          curl -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/$PR_SHA" \
+            -d '{
+              "state": "'"$STATUS"'",
+              "target_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "description": "댓글 기반으로 승인/거부된 결과입니다.",
+              "context": "PM 승인 여부"
+            }'
