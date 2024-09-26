@@ -1,0 +1,22 @@
+name: "PR Comment - Approval Check"
+on:
+  workflow_run:
+    workflows: ["PR Comment - Approval"]
+    types:
+      - completed
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: false
+
+jobs:
+  on-success:
+    name: "⚡️ Check approval"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        run: |
+          exit 0
+      - if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+        run: |
+          exit 119
