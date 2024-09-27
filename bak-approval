@@ -1,0 +1,158 @@
+import glob
+import json
+import os
+from typing import List, Dict
+import requests
+
+APPROVAL_CONFIG_PATH = "/Users/jhlee/Library/Application Support/JetBrains/PyCharm2024.1/scratches/approval.json"
+GH_TOKEN = os.getenv("GH_TOKEN")
+
+
+def get_changed_file_list(base_branch: str, head_branch: str, **kwargs) -> List[str]:
+    print(f"[DEBUG] base branch: {base_branch}")
+    print(f"[DEBUG] head branch: {head_branch}")
+
+    os.system(f"git fetch origin {base_branch}")
+    os.system(f"git fetch origin {head_branch}")
+    # os.system("git --no-pager branch")
+    os.system(f"git --no-pager diff {base_branch} {head_branch} --name-only > changed_file_list")
+
+    changed_file_list = []
+    with open("changed_file_list", "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            changed_file_list.append(line.replace("\n", ""))
+    os.remove("changed_file_list")
+
+    return changed_file_list
+
+
+def get_matched_rules(path: str, rules: Dict[str, Dict]):
+    print(f"[DEBUG] Checking path '{path} is in rules...")
+
+    _matched_rules = []
+    for r in rules.keys():
+        print(f"[DEBUG] rule: {r}")
+        path_list = glob.glob(r, recursive=True)
+        if path in path_list:
+            print(f"[DEBUG] Matched.")
+            _matched_rules.append(rules[r])
+
+    return _matched_rules
+
+
+def merge_rules(matched_rules: List[Dict]) -> Dict[str, Dict]:
+    print("[INFO] Merging rules...")
+
+    result = {}
+    _required_groups = list(set([list(r["required"].keys())[0] for r in matched_rules]))
+    _required = {
+        _group: max([r["required"].get(_group) for r in matched_rules if _group in r["required"].keys()])
+        for _group in _required_groups
+    }
+    result["total"] = max([r["total"] for r in matched_rules])
+    result["required"] = _required
+
+    print(f"[INFO] rules: {result}")
+
+    return result
+
+
+def get_approvers():
+    return ["MingBaek", "Jholee"]  # TODO: This is a sample!
+
+
+def check_approved_groups(approvers: List[str], org: str) -> Dict[str, int]:
+    print(f"[DEBUG] Checking approved groups... ")
+
+    result = {}
+
+    print(f"[DEBUG] Result: {result}")
+
+    return result
+
+
+def get_members_of_group(group: Dict) -> List[str]:
+    print(f"[DEBUG] Finding members in group...")
+    print(f"{group}")
+    for team in group["member"]["team"]:
+        _org, _team = team.split("/")
+        res = requests.get(
+            headers={
+                "Authorization": f"token {GH_TOKEN}"
+            },
+            url="https://api.github.com/orgs/{_org}/teams/{_team}/members"
+        )
+        print(res)
+
+    return []
+
+
+def extract_members_in_groups(groups: Dict) -> Dict[str, List[str]]:
+    print(f"[DEBUG] Extracting members in groups...")
+    print(f"{groups}")
+
+    result = {}
+    for k, v in groups.items():
+        result[k] = []
+
+        # Extract members in user
+        if "user" in v["member"]:
+            result[k] += v["member"].get("user")
+
+        # Extract members in team
+        for t in v["member"]["team"]:
+            _org, _team = t.split("/")
+            request_url = f"https://api.github.com/orgs/{_org}/teams/{_team}/members"
+            try:
+                res = requests.get(
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "Authorization": f"Bearer {GH_TOKEN}",
+                        "X-GitHub-Api-Version": "2022-11-28"
+                    },
+                    url=request_url
+                )
+                result[k] += [user["login"] for user in res.json()]
+            except Exception as e:
+                print(f"[ERROR] There was an error!")
+
+    return result
+
+
+def check_approved_count_by_groups(extracted_groups: Dict[Dict[str, int]], approved_users: List[str]) -> Dict[List[str]]:
+    pass
+
+
+def main():
+    with open(APPROVAL_CONFIG_PATH, 'r') as f:
+        config_approval = json.load(f)
+
+    changed_file_list = get_changed_file_list(base_branch=f"{os.getenv('GITHUB_BASE_REF')}",
+                                              head_branch=f"{os.getenv('GITHUB_HEAD_REF')}")
+
+    matched_rules = [get_matched_rules(path=cfp, rules=config_approval["rule"])[0] for cfp in changed_file_list]
+
+    rule = merge_rules(matched_rules)
+
+    groups = extract_members_in_groups(groups=config_approval["group"])
+
+    approvers = get_approvers()
+    approved_count_by_group = check_approved_count_by_groups()
+
+    # approved_groups = check_approved_groups(approvers)
+
+    print(groups)
+
+    # for k, v in config_approval["group"].items():
+    #     print(k)
+    #     print(v)
+    #     print(get_members_of_group(group={k: v}))
+
+
+if __name__ == "__main__":
+    if not os.getenv("GITHUB_ACTIONS") == "true":
+
+        os.environ["GITHUB_BASE_REF"] = "staging"
+        os.environ["GITHUB_HEAD_REF"] = "develop"
+    main()
